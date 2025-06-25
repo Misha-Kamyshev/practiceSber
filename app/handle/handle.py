@@ -1,0 +1,26 @@
+from aiogram import Router
+from aiogram.filters import Command
+from aiogram.types import Message
+
+from app.nodes.node import app
+
+router = Router()
+
+
+@router.message(Command('start'))
+async def handle_start(message: Message):
+    await message.answer(text='Задай мне вопрос связанный с моей базой данных')
+
+
+@router.message()
+async def handle_message(message: Message):
+
+    response = app.invoke({'user_input': message.text})
+    result = response.get('final_result')
+
+    answer = []
+    for row in result:
+        line = " | ".join(str(item) for item in row)
+        answer.append(line)
+
+    await message.answer(text="\n".join(answer))
