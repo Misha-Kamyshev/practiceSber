@@ -1,10 +1,11 @@
-from langgraph.graph import StateGraph, END, MessagesState
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import StateGraph, END
 from langchain_core.runnables import RunnableLambda
 
-from app.static import State
 from .graph import check_entities, validate_entities, correct_input, generate_sql, valid_final_sql, correct_final_sql
+from ..static import MyState
 
-graph = StateGraph(State)
+graph = StateGraph(state_schema=MyState)
 
 graph.add_node('check_entities', RunnableLambda(check_entities))
 graph.add_node('validate_entities', RunnableLambda(validate_entities))
@@ -22,4 +23,7 @@ graph.add_edge('generate_sql', 'valid_final_sql')
 graph.add_conditional_edges("valid_final_sql", lambda s: END if not s.get('correction_needed') and s.get('entities_valid') else "correct_final_sql")
 graph.add_edge('correct_final_sql', 'valid_final_sql')
 
-app = graph.compile()
+
+memory = MemorySaver()
+
+app = graph.compile(checkpointer=memory)

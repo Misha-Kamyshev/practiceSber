@@ -1,6 +1,7 @@
 from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
+from langchain_core.messages import HumanMessage
 
 from app.nodes.node import app
 
@@ -14,8 +15,9 @@ async def handle_start(message: Message):
 
 @router.message()
 async def handle_message(message: Message):
+    config = {"configurable": {"thread_id": 'asd1'}}
 
-    response = app.invoke({'user_input': message.text})
+    response = app.invoke({'messages': [HumanMessage(message.text)]}, config=config)
     result = response.get('final_result')
 
     answer = []

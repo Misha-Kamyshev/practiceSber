@@ -1,8 +1,11 @@
 import os
+from typing import Optional
+
 from dotenv import load_dotenv
 
 from langchain_gigachat.chat_models import GigaChat
 from aiogram import Bot, Dispatcher
+from langgraph.graph import MessagesState
 
 load_dotenv()
 
@@ -33,6 +36,8 @@ DB_SCHEMA = '''Ты работаешь с базой данных PostgreSQL. В
                 - `grades.subject_id` связан с `subjects.subject_id`
                 
                 Используй только существующие поля. При необходимости делай JOIN между таблицами.
+                Все имена, фамилии и названия предметов начинаются с заглавной буквы (пример: Алексей Андреев; Теория вероятностей), не забудь поменять регистр.
+                !!!!!!ВОЗВРАЩАЙ ТОЛЬКО SQL-ЗАПРОСЫ **НИКОГДА НЕ ОТВЕЧАЙ СЛОВАМИ**!!!!!!.
                 '''
 
 bot = Bot(token=BOT_TOKEN)
@@ -45,15 +50,12 @@ giga = GigaChat(
 )
 
 
-class State(dict):
-    def __init__(self):
-        super().__init__({
-            "user_input": "",  # начальный запрос
-            "check_sql": "",  # sql-запрос для проверки
-            "entities_valid": False,  # результат проверки sql
-            "correction_needed": False,  # после проверки требуется корректировка запроса
-            "error" : "",  # Хранение ошибок
-            "final_sql": "",  # конечный sql-запрос
-            "final_result": ""  # конечный ответ для пользователя
-        })
-
+class MyState(MessagesState, total=False):
+    user_input: Optional[str]
+    check_sql: Optional[str]
+    final_sql: Optional[str]
+    correction_needed: Optional[bool]
+    entities_valid: Optional[bool]
+    final_result: Optional[list]
+    error: Optional[str]
+    system_prompt: Optional[str]
