@@ -1,7 +1,9 @@
 import os
+from pyexpat.errors import messages
 from typing import Optional
 
 from dotenv import load_dotenv
+from langchain_core.messages import SystemMessage
 
 from langchain_gigachat.chat_models import GigaChat
 from aiogram import Bot, Dispatcher
@@ -13,7 +15,7 @@ AUTHORIZATION_KEY = os.getenv("AUTHORIZATION_KEY")
 DATA_SOURCE = os.getenv("DATA_SOURCE")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-DB_SCHEMA = '''Ты работаешь с базой данных PostgreSQL. В ней есть следующие таблицы:
+DB_SCHEMA = '''Ты помощник-аналитик и работаешь с оценками студентов. Также работаешь с базой данных PostgreSQL. В ней есть следующие таблицы:
                 
                 1. Таблица `students`:
                    - `student_id` (integer, PRIMARY KEY)
@@ -24,6 +26,7 @@ DB_SCHEMA = '''Ты работаешь с базой данных PostgreSQL. В
                 2. Таблица `subjects`:
                    - `subject_id` (integer, PRIMARY KEY)
                    - `subject_name` (varchar(100)) — название предмета
+                   - `min_score_subject` (real) — минимальный средний балл группы по предмету
                 
                 3. Таблица `grades`:
                    - `grade_id` (integer, PRIMARY KEY)
@@ -37,7 +40,7 @@ DB_SCHEMA = '''Ты работаешь с базой данных PostgreSQL. В
                 
                 Используй только существующие поля. При необходимости делай JOIN между таблицами.
                 Все имена, фамилии и названия предметов начинаются с заглавной буквы (пример: Алексей Андреев; Теория вероятностей), не забудь поменять регистр.
-                !!!!!!ВОЗВРАЩАЙ ТОЛЬКО SQL-ЗАПРОСЫ **НИКОГДА НЕ ОТВЕЧАЙ СЛОВАМИ**!!!!!!.
+                !!!!!!КАЖДЫЙ ЗАПРОС БУДЕТ СОДЕРЖАТЬ ШАБЛОН КАК НЕОБХОДИМО ОТВЕТИТ, СТРОГО СОБЛЮДАЙ ЕГО!!!!!!.
                 '''
 
 bot = Bot(token=BOT_TOKEN)
@@ -50,5 +53,14 @@ giga = GigaChat(
 )
 
 
-class MyState(MessagesState, total=False):
-    pass
+class State(MessagesState, total=False):
+    start: Optional[bool]  # на старте True все остальное время False для записи на старте системного промпта
+    user_input: Optional[str]  # начальное сообщение от пользователя
+    check_sql: Optional[str]  # промежуточный SQL-запрос
+
+    error_sql: Optional[str]  # ошибка, которая возникает при ошибочном выполнении sql
+    error_empty_sql: Optional[bool]  # ошибка, если вывод sql пуст
+    count_error_sql: Optional[int]  # счетчик ошибок
+
+    result: Optional[str]  # конечный ответ от ИИ для вывода пользователю
+

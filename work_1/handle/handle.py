@@ -1,10 +1,8 @@
 from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
-from langchain_core.messages import HumanMessage, SystemMessage
 
-from work_1.nodes.node import app
-from work_1.static import DB_SCHEMA
+from work_1.nodes.graph import app
 
 router = Router()
 start = True
@@ -17,4 +15,20 @@ async def handle_start(message: Message):
 
 @router.message()
 async def handle_message(message: Message):
-    pass
+    global start
+    config = {"configurable": {"thread_id": 'asd1'}}
+
+    response = app.invoke({
+        'user_input': message.text,
+        'start': start,
+
+        'error_sql': '',
+        'error_empty_sql': False,
+        'check_sql': '',
+        'count_error_sql': 0,
+        'result': ''
+    }, config=config)
+
+    result = response.get('result')
+    await message.answer(text=result)
+    start = False
