@@ -17,19 +17,4 @@ async def handle_start(message: Message):
 
 @router.message()
 async def handle_message(message: Message):
-    global start
-    config = {"configurable": {"thread_id": 'asd1'}}
-
-    response = app.invoke({
-        'user_input': message.text,
-        'start': start
-    }, config=config)
-    result = response.get('final_result')
-
-    start = False
-    answer = []
-    for row in result:
-        line = " | ".join(str(item) for item in row)
-        answer.append(line)
-
-    await message.answer(text="\n".join(answer))
+    pass
