@@ -3,8 +3,8 @@ from aiogram.filters import Command
 from aiogram.types import Message
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from app.nodes.node import app
-from app.static import DB_SCHEMA
+from work_1.nodes.node import app
+from work_1.static import DB_SCHEMA
 
 router = Router()
 start = True

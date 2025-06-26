@@ -2,8 +2,8 @@ from copy import deepcopy
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from app.databases.query import query_to_databases, extract_sql, insert_to_databases
-from app.static import giga, MyState, DB_SCHEMA
+from work_1.databases.query import query_to_databases, extract_sql, insert_to_databases
+from work_1.static import giga, MyState, DB_SCHEMA
 
 
 def check_info(state: MyState) -> MyState:

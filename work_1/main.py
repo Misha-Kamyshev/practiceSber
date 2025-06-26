@@ -1,7 +1,7 @@
 import asyncio
 
-from app.handle.handle import router
-from app.static import dp, bot
+from work_1.handle.handle import router
+from work_1.static import dp, bot
 
 
 async def main():

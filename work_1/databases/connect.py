@@ -1,7 +1,7 @@
 import psycopg2
 from psycopg2._psycopg import connection
 
-from app.static import DATA_SOURCE
+from work_1.static import DATA_SOURCE
 
 def connect() -> connection | None:
     try:

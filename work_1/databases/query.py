@@ -1,4 +1,4 @@
-from app.databases.connect import connect
+from work_1.databases.connect import connect
 
 
 def extract_sql(sql: str) -> str:
