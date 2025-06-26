@@ -56,6 +56,12 @@ class MyState(MessagesState, total=False):
     final_sql: Optional[str]
     correction_needed: Optional[bool]
     entities_valid: Optional[bool]
+    contains_text: Optional[bool]
+    check_prompt: Optional[bool]
     final_result: Optional[list]
     error: Optional[str]
     system_prompt: Optional[str]
+
+    add_new_data: Optional[bool]
+
+    start: Optional[bool]
