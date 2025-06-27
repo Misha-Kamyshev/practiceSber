@@ -11,7 +11,7 @@ def extract_sql(sql: str) -> str:
     return sql_query
 
 
-def query_to_databases(sql: str):
+def query_to_databases(sql: str) -> list | None:
     connection = connect()
 
     try:
@@ -26,7 +26,7 @@ def query_to_databases(sql: str):
         connection.close()
 
 
-def get_grades_db(group: str, subject: str):
+def get_grades_db(group: str, subject: str) -> list | None:
     connection = connect()
     query = '''
             SELECT s.student_id,
@@ -54,7 +54,7 @@ def get_grades_db(group: str, subject: str):
         connection.close()
 
 
-def get_students_in_group(group: str):
+def get_students_in_group(group: str) -> list | None:
     connection = connect()
     query = '''
             SELECT s.student_id
@@ -85,6 +85,26 @@ def get_avg_grade_on_subject(subject: str) -> tuple | None:
         with connection.cursor() as cursor:
             cursor.execute(query, (subject,))
             return cursor.fetchone()
+
+    except Exception:
+        raise
+
+    finally:
+        connection.close()
+
+
+def get_bad_students(id_students: list) -> list | None:
+    connection = connect()
+    query = '''
+            SELECT first_name, last_name
+            FROM students
+            WHERE student_id = ANY (%s);
+            '''
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(query, (id_students,))
+            return cursor.fetchall()
 
     except Exception:
         raise
