@@ -64,6 +64,6 @@ class State(MessagesState, total=False):
 
     student_id: Optional[list[int]]
     grade: Optional[list[int]]
+    min_avg_grade: Optional[int]
 
     result: Optional[str]  # конечный ответ от ИИ для вывода пользователю
-
