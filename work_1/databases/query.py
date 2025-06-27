@@ -24,3 +24,29 @@ def query_to_databases(sql: str):
 
     finally:
         connection.close()
+
+
+def get_grades_db(group: str, subject: str):
+    connection = connect()
+    query = '''
+            SELECT s.student_id,
+                   g.grade
+            FROM grades g
+                     JOIN
+                 students s ON g.student_id = s.student_id
+                     JOIN
+                 subjects subj ON g.subject_id = subj.subject_id
+            WHERE s.group_name = %s
+              AND upper(subj.subject_name) = %s;
+            '''
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(query, (group, subject))
+            return cursor.fetchall()
+
+    except Exception:
+        raise
+
+    finally:
+        connection.close()

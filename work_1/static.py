@@ -62,5 +62,8 @@ class State(MessagesState, total=False):
     error_empty_sql: Optional[bool]  # ошибка, если вывод sql пуст
     count_error_sql: Optional[int]  # счетчик ошибок
 
+    student_id: Optional[list[int]]
+    grade: Optional[list[int]]
+
     result: Optional[str]  # конечный ответ от ИИ для вывода пользователю
 

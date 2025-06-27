@@ -26,6 +26,8 @@ async def handle_message(message: Message):
         'error_empty_sql': False,
         'check_sql': '',
         'count_error_sql': 0,
+        'student_id': [],
+        'grade': [],
         'result': ''
     }, config=config)
 
