@@ -5,7 +5,6 @@ from aiogram.types import Message
 from work_1.nodes.graph import app
 
 router = Router()
-start = True
 
 
 @router.message(Command('start'))
@@ -15,12 +14,10 @@ async def handle_start(message: Message):
 
 @router.message()
 async def handle_message(message: Message):
-    global start
     config = {"configurable": {"thread_id": 'asd1'}}
 
     response = app.invoke({
         'user_input': message.text,
-        'start': start,
 
         'error_sql': '',
         'error_empty_sql': False,
@@ -33,4 +30,3 @@ async def handle_message(message: Message):
 
     result = response.get('result')
     await message.answer(text=result)
-    start = False

@@ -1,80 +1,16 @@
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from work_1.databases.query import extract_sql, query_to_databases, get_grades_db, get_students_in_group, \
-    get_avg_grade_on_subject, get_bad_students
+from work_1.databases.query import get_grades_db, get_students_in_group, get_avg_grade_on_subject, get_bad_students, \
+    get_coefficient_students, get_coefficient_subject
 from work_1.static import State, DB_SCHEMA, giga
 from work_1.logger import write_logs
 
 
-def check_group_and_subject(state: State) -> State:
-    messages = state['messages']
-    if state['start']:
-        messages.append(SystemMessage(content=DB_SCHEMA))
-        state['start'] = False
-
-    prompt = (
-            'Тебе необходимо составить SQL-запрос для проверки существования предмета и группы, которые указаны в запросе. '
-            'Для поиска используй функцию UPPER для названий группы и предмета, и значения подставляй тоже большими буквами. '
-            'Ты должен ответить **только** в следующем формате (без кода, пояснений, описаний):\n'
-            '```sql\n...твой запрос...\n```\n'
-            'Никаких комментариев, кода вне блока, пояснений — только SQL-запрос в указанном формате.\n'
-            'Запрос пользователя: ' + state['user_input'])
-
-    if state['error_empty_sql']:
-        prompt = (
-                'Твой SQL-запрос выполнился успешно, но вернул None. '
-                'Проверь текст запроса на ошибки и исправь его. '
-                'Ты должен ответить **только** в следующем формате (без кода, пояснений, описаний):\n'
-                '```sql\n...твой запрос...\n```\n'
-                'Никаких комментариев, кода вне блока, пояснений — только SQL-запрос в указанном формате.\n'
-                'Запрос пользователя: ' + state['user_input'] + '\n'
-                                                                'Твой предыдущий SQL-запрос: ' + state['check_sql'])
-
-    if state['error_sql']:
-        prompt = (
-                'Твой SQL-запрос не выполнился. Исправь его и напиши снова. '
-                'Если ошибка связана с ненайденной колонкой, помни, что название группы находится в таблице students, '
-                'а название предмета в таблице subjects. '
-                'Ты должен ответить **только** в следующем формате (без кода, пояснений, описаний):\n'
-                '```sql\n...твой запрос...\n```\n'
-                'Никаких комментариев, кода вне блока, пояснений — только SQL-запрос в указанном формате.\n'
-                'Запрос пользователя: ' + state['user_input'] + '\n'
-                                                                'Твой предыдущий SQL-запрос: ' + state[
-                    'check_sql'] + '\nОшибка выполнения: ' + state['error_sql'])
-
-    messages.append(HumanMessage(content=prompt))
-
-    result = giga.invoke(messages)
-    messages.append(result)
-
-    state['messages'] = messages
-    state['check_sql'] = result.content
-
-    state['result'] = 'Ошибка выполнения попробуйте снова'
-    write_logs('step_1.log', question_human=prompt, returns=result.content)
-
-    sql = extract_sql(result.content)
-    try:
-        result_db = query_to_databases(sql)
-        if result_db and all(value is not None for value in result_db[0]):
-            state['error_sql'] = None
-            state['error_empty_sql'] = False
-        else:
-            state['error_sql'] = None
-            state['error_empty_sql'] = True
-    except Exception as e:
-        state['error_sql'] = str(e)
-        state['error_empty_sql'] = True
-        write_logs('step_1.log', question_human='Ошибка при выполнении SQL', returns=str(e))
-
-
-    if not state['error_empty_sql']:
-        state['count_error_sql'] = 0
-
-    return state
-
-
 def get_grades(state: State) -> State:
+    messages = state['messages']
+    if not messages:
+        messages.append(SystemMessage(content=DB_SCHEMA))
+
     prompt = ('Тебе необходимо определить, о каком предмете и какой группе говорится в запросе. '
               'Ты должен ответить **только** в следующем формате (без кода, пояснений, описаний):\n'
               'предмет: <НАЗВАНИЕ ПРЕДМЕТА В ВЕРХНЕМ РЕГИСТРЕ>; группа: <НАЗВАНИЕ ГРУППЫ В ВЕРХНЕМ РЕГИСТРЕ>\n'
@@ -91,7 +27,6 @@ def get_grades(state: State) -> State:
                   'Никаких комментариев, кода, объяснений — только результат в указанном формате.\n'
                   'Запрос пользователя: ' + state['user_input'])
 
-    messages = state['messages']
     messages.append(HumanMessage(content=prompt))
 
     result = giga.invoke(messages)
@@ -102,14 +37,18 @@ def get_grades(state: State) -> State:
     subject = results[0].split(':')[1].strip().upper()
     group = results[1].split(':')[1].strip().upper()
 
-    state['result'] = 'Ошибка выполнения попробуйте снова'
     write_logs('step_2.log', question_human=prompt, returns=result.content)
 
     try:
         result_db = get_grades_db(group, subject)
         result_students_db = get_students_in_group(group)
         result_min_avg_grade = get_avg_grade_on_subject(subject)
-        if not result_db or not result_students_db or not result_min_avg_grade:
+        result_coefficient_students = get_coefficient_students(group)
+        result_coefficient_subject = get_coefficient_subject(subject)
+
+        if not all([result_db, result_students_db, result_min_avg_grade, result_coefficient_students,
+                    result_coefficient_subject]):
+            state['result'] = 'Ошибка выполнения попробуйте снова'
             state['error_sql'] = None
             state['error_empty_sql'] = True
         else:
@@ -129,10 +68,19 @@ def get_grades(state: State) -> State:
                     student_id.append(student)
                     student_id_set.add(student)
 
-            state['student_id'] = student_id
-            state['grade'] = grade
+            data: list[tuple[int, int, float]] = []
+            for i, sid in enumerate(student_id):
+                student_grade = grade[i] if i < len(grade) else 0
+                student_coefficient = next(
+                    (coefficient[1] for coefficient in result_coefficient_students if coefficient[0] == sid), 1.0)
+
+                data.append((sid, student_grade, student_coefficient))
+
+            state['data'] = data
             state['min_avg_grade'] = result_min_avg_grade[0]
+            state['coefficient_subject'] = result_coefficient_subject[0]
             state['error_empty_sql'] = False
+            state['error_sql'] = None
 
     except Exception as e:
         state['result'] = 'Ошибка запроса в базу данных'
@@ -145,18 +93,20 @@ def get_grades(state: State) -> State:
 
 def assessment_analysis(state: State) -> State:
     prompt = (
-        'Тебе необходимо проанализировать оценки группы по предмету, посчитать средний балл, '
-        'сравнить этот балл с необходимым баллом по предмету. '
-        'Понять какому минимальному количеству студентов необходимо получить оценку(и), '
-        'чтобы средний балл группы соответствовал минимальному баллу группы. '
-        'Также может быть, что у студента нет оценки. '
+        'Тебе необходимо проанализировать оценки группы по предмету. '
+        'Для каждого студента даны его ID, оценка и коэффициент мотивации. '
+        'Также известен коэффициент сложности предмета (одинаковый для всех студентов).\n\n'
+        'Вычисли средний балл группы по следующей формуле:\n'
+        'средний балл группы = (сумма(оценка × коэффициент мотивации)) / (коэффициент сложности × количество студентов)\n\n'
+        '**Важно**: если оценка равна 0 — это значит, что у студента нет оценки.\n\n'
+        'Сравни получившийся средний балл с необходимым. Если балл недостаточен, определи, '
+        'каким студентам без оценки нужно выставить оценку(и), чтобы средний балл соответствовал требуемому. '
+        'Если балл уже достаточен — напиши "нет".\n\n'
         'Ты должен ответить **только** в следующем формате (без кода, пояснений, описаний):\n'
-        'средний балл группы: <число>; необходимый средний балл: <число>; студенты, которым необходимо получить оценки: <id студента через запятую>\n'
-        'Если средний балл группы больше или равен необходимому, то в конце напиши "нет" вместо списка студентов.\n'
-        'Пример 1 (балл ниже нужного): средний балл группы: 4.0; необходимый средний балл: 4.5; студенты, которым необходимо получить оценки: 1, 5\n'
-        'Пример 2 (балл выше нужного): средний балл группы: 4.6; необходимый средний балл: 4.0; студенты, которым необходимо получить оценки: нет\n'
-        'Никаких комментариев, кода, кавычек, квадратных скобок или объяснений — только строка с результатом в указанном формате.\n'
-        f'Данные: студенты: {state["student_id"]}, оценки студентов: {state["grade"]}.')
+        'средний балл группы: <число>; необходимый средний балл: <число>; студенты, которым необходимо получить оценки: <id через запятую>\n\n'
+        'Пример 1: средний балл группы: 4.0; необходимый средний балл: 4.5; студенты, которым необходимо получить оценки: 1, 5\n'
+        'Пример 2: средний балл группы: 4.6; необходимый средний балл: 4.0; студенты, которым необходимо получить оценки: нет\n\n'
+        f'Данные: {state["data"]}; коэффициент сложности: {state["coefficient_subject"]}; необходимый средний балл: {state["min_avg_grade"]}')
 
     messages = state['messages']
     messages.append(HumanMessage(content=prompt))
@@ -167,22 +117,23 @@ def assessment_analysis(state: State) -> State:
 
     write_logs('step_3.log', question_human=prompt, returns=result.content)
 
-
     results = result.content.split('; ')
     avg_group = results[0].strip()
     bad_students: list[str] = []
-    if results[2].split(':')[1].strip() != 'нет':
+    if float(avg_group.split(':')[1].strip()) >= state['min_avg_grade']:
+        bad_students = ['нет']
+
+    else:
         id_bad_students = list(map(int, results[2].split(':')[1].strip().split(', ')))
         result_bad_students_db = get_bad_students(id_bad_students)
 
         for row in result_bad_students_db:
             bad_students.append(f"{row[0]} {row[1]}")
-    else:
-        bad_students = ['нет']
 
-    state[
-        'result'] = f"{avg_group}; необходимый средний балл: {state['min_avg_grade']}; студенты, которым необходимо получить оценки: {', '.join(bad_students)}"
+
+
+
+    state['result'] = (f"{avg_group}; необходимый средний балл: {state['min_avg_grade']}; "
+                       f"студенты, которым необходимо получить оценки: {', '.join(bad_students)}")
 
     return state
-
-# TODO Он может отправить данные не в том формате как я их жду и надо будет это учесть в split()

@@ -1,31 +1,6 @@
 from work_1.databases.connect import connect
 
 
-def extract_sql(sql: str) -> str:
-    if sql.startswith("```") and sql.endswith("```"):
-        lines = sql.splitlines()
-        sql_query = '\n'.join(lines[1:-1])
-    else:
-        sql_query = sql
-
-    return sql_query
-
-
-def query_to_databases(sql: str) -> list | None:
-    connection = connect()
-
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute(sql)
-            return cursor.fetchall()
-
-    except Exception:
-        raise
-
-    finally:
-        connection.close()
-
-
 def get_grades_db(group: str, subject: str) -> list | None:
     connection = connect()
     query = '''
@@ -105,6 +80,48 @@ def get_bad_students(id_students: list) -> list | None:
         with connection.cursor() as cursor:
             cursor.execute(query, (id_students,))
             return cursor.fetchall()
+
+    except Exception:
+        raise
+
+    finally:
+        connection.close()
+
+
+def get_coefficient_students(group: str) -> list | None:
+    connection = connect()
+
+    query = '''
+            SELECT student_id, coefficient
+            FROM students
+            WHERE upper(group_name) = %s
+            ORDER BY student_id
+            '''
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(query, (group,))
+            return cursor.fetchall()
+
+    except Exception:
+        raise
+
+    finally:
+        connection.close()
+
+
+def get_coefficient_subject(subject_name: str) -> list | None:
+    connection = connect()
+    query = '''
+            SELECT difficulty_factor
+            FROM subjects
+            WHERE upper(subject_name) = %s
+            '''
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(query, (subject_name,))
+            return cursor.fetchone()
 
     except Exception:
         raise

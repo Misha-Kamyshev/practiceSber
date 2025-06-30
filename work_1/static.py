@@ -54,7 +54,6 @@ giga = GigaChat(
 
 
 class State(MessagesState, total=True):
-    start: bool  # на старте True все остальное время False для записи на старте системного промпта
     user_input: str  # начальное сообщение от пользователя
     check_sql: str  # промежуточный SQL-запрос
 
@@ -62,8 +61,8 @@ class State(MessagesState, total=True):
     error_empty_sql: bool  # ошибка, если вывод sql пуст
     count_error_sql: int  # счетчик ошибок
 
-    student_id: list[int]  # массив с id-студентов для отправки ИИ
-    grade: list[int]  # массив с оценками студентов для отправки ИИ
-    min_avg_grade: int  # средний балл необходимый для группы по выбранному предмету
+    data: list[tuple[int, int, float]]  # массив для отправки в нейросеть (student_id, grade, coefficient_students)
+    min_avg_grade: float  # средний балл необходимый для группы по выбранному предмету
+    coefficient_subject: float  # коэффициент сложности предмета
 
     result: str  # конечный ответ от ИИ для вывода пользователю
