@@ -1,7 +1,6 @@
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from work_1.databases.query import get_grades_db, get_students_in_group, get_avg_grade_on_subject, get_bad_students, \
-    get_coefficient_students, get_coefficient_subject
+from work_1.databases.query import get_avg_group, get_avg_grade_on_subject, get_bad_students, get_grades_db
 from work_1.static import State, DB_SCHEMA, giga
 from work_1.logger import write_logs
 
@@ -18,7 +17,7 @@ def get_grades(state: State) -> State:
               'Никаких комментариев, кода, объяснений — только результат в указанном формате.\n'
               'Запрос: ' + state['user_input'])
 
-    if state['error_empty_sql']:
+    if state['warning']:
         prompt = ('Ошибка в названии группы или предмета, возможна опечатка. '
                   'Проверь ошибки в названиях группы и предмета, и верни исправленный вариант. '
                   'Ты должен ответить **только** в следующем формате (без кода, пояснений, описаний):\n'
@@ -33,107 +32,124 @@ def get_grades(state: State) -> State:
     messages.append(result)
     state['messages'] = messages
 
+    write_logs('step_1.log', question_human=prompt, returns=result.content)
+
     results = result.content.split(';')
     subject = results[0].split(':')[1].strip().upper()
     group = results[1].split(':')[1].strip().upper()
 
-    write_logs('step_2.log', question_human=prompt, returns=result.content)
 
     try:
-        result_db = get_grades_db(group, subject)
-        result_students_db = get_students_in_group(group)
+        result_avg_group = get_avg_group(group, subject)
         result_min_avg_grade = get_avg_grade_on_subject(subject)
-        result_coefficient_students = get_coefficient_students(group)
-        result_coefficient_subject = get_coefficient_subject(subject)
+        result_grades = get_grades_db(group, subject)
 
-        if not all([result_db, result_students_db, result_min_avg_grade, result_coefficient_students,
-                    result_coefficient_subject]):
+        if not all([result_min_avg_grade, result_avg_group, result_grades]):
             state['result'] = 'Ошибка выполнения попробуйте снова'
-            state['error_sql'] = None
-            state['error_empty_sql'] = True
+            state['error'] = None
+            state['warning'] = True
+
         else:
-            student_id: list[int] = []
-            student_all: list[int] = []
-            grade: list[int] = []
-            for row in result_db:
-                student_id.append(row[0])
-                grade.append(row[1])
+            state['warning'] = False
+            state['error'] = None
+            state['count_warning'] += 1
 
-            for row in result_students_db:
-                student_all.append(row[0])
-            student_id_set = set(student_id)
-
-            for student in student_all:
-                if student not in student_id_set:
-                    student_id.append(student)
-                    student_id_set.add(student)
-
-            data: list[tuple[int, int, float]] = []
-            for i, sid in enumerate(student_id):
-                student_grade = grade[i] if i < len(grade) else 0
-                student_coefficient = next(
-                    (coefficient[1] for coefficient in result_coefficient_students if coefficient[0] == sid), 1.0)
-
-                data.append((sid, student_grade, student_coefficient))
-
-            state['data'] = data
+            state['current_avg_group'] = float(result_avg_group[0])
             state['min_avg_grade'] = result_min_avg_grade[0]
-            state['coefficient_subject'] = result_coefficient_subject[0]
-            state['error_empty_sql'] = False
-            state['error_sql'] = None
+            state['grade'] = result_grades
+            state['result'] = (f"Средний балл группы: {result_avg_group[0]}; "
+                               f"необходимый средний балл: {result_min_avg_grade[0]};")
 
     except Exception as e:
         state['result'] = 'Ошибка запроса в базу данных'
-        state['error_sql'] = str(e)
-        state['error_empty_sql'] = True
-        write_logs('step_2.log', question_human='Ошибка при выполнении SQL', returns=str(e))
+        state['error'] = str(e)
+        state['warning'] = True
+
+        write_logs('step_1.log', question_human='Ошибка при выполнении SQL', returns=str(e))
 
     return state
 
 
 def assessment_analysis(state: State) -> State:
-    prompt = (
-        'Тебе необходимо проанализировать оценки группы по предмету. '
-        'Для каждого студента даны его ID, оценка и коэффициент мотивации. '
-        'Также известен коэффициент сложности предмета (одинаковый для всех студентов).\n\n'
-        'Вычисли средний балл группы по следующей формуле:\n'
-        'средний балл группы = (сумма(оценка × коэффициент мотивации)) / (коэффициент сложности × количество студентов)\n\n'
-        '**Важно**: если оценка равна 0 — это значит, что у студента нет оценки.\n\n'
-        'Сравни получившийся средний балл с необходимым. Если балл недостаточен, определи, '
-        'каким студентам без оценки нужно выставить оценку(и), чтобы средний балл соответствовал требуемому. '
-        'Если балл уже достаточен — напиши "нет".\n\n'
-        'Ты должен ответить **только** в следующем формате (без кода, пояснений, описаний):\n'
-        'средний балл группы: <число>; необходимый средний балл: <число>; студенты, которым необходимо получить оценки: <id через запятую>\n\n'
-        'Пример 1: средний балл группы: 4.0; необходимый средний балл: 4.5; студенты, которым необходимо получить оценки: 1, 5\n'
-        'Пример 2: средний балл группы: 4.6; необходимый средний балл: 4.0; студенты, которым необходимо получить оценки: нет\n\n'
-        f'Данные: {state["data"]}; коэффициент сложности: {state["coefficient_subject"]}; необходимый средний балл: {state["min_avg_grade"]}')
+    prompt = ""
+    if state['warning']:
+        prompt += (
+            'Твой предыдущий ответ был не правильный и средний балл все еще низкий.\n'
+            'Тебе необходимо взять других студентов.\n'
+        )
+
+    prompt += (
+        'Ты должен строго следовать этим правилам для выбора студентов:\n'
+        '1. В первую очередь выбирай студентов БЕЗ ОЦЕНКИ (None) — они в максимальном приоритете.\n'
+        '2. Затем выбирай студентов с НАИБОЛЬШИМ коэффициентом мотивации.\n'
+        '3. Среди них сначала бери тех, у кого ОЦЕНКА НИЖЕ.\n'
+        '4. НИКОГДА не выбирай студентов, у которых уже оценка 5 — они не нуждаются в исправлении.\n\n'
+        'Каждый выбранный студент:\n'
+        '- Если у него нет оценки (None), считается как будто он получает оценку 5.\n'
+        '- Если у него оценка меньше 5, она заменяется на 5.\n\n'
+        'После каждого выбора обязательно пересчитывай средний балл группы:\n'
+        '- Учти все оценки (исправленные и нет) и дели на общее число студентов.\n'
+        '- Если средний балл становится ≥ необходимого, остановись.\n'
+        '- При сравнении баллов не округляй числа, то есть (4.6 < 5.0), (4.823 < 5.0), (4.6 > 3.845), (5.0 = 5.0)\n\n'
+        'В ответе напиши свои рассуждения, ты не должен рассуждать через код\n'
+        'Каждый студент представлен в формате: (id_студента, оценка, коэффициент мотивации).\n'
+        'Если оценка отсутствует, она будет записана как None.\n\n'
+        '**В последней строке после рассуждений ты должен вернуть ТОЛЬКО ответ в следующем формате (без кода, пояснений, описаний):**\n'
+        '"студенты, которым необходимо получить оценки: <id через запятую>"\n\n'
+        f'Данные студентов: {state["grade"]}; текущий средний балл: {state["current_avg_group"]}; необходимый средний балл: {state["min_avg_grade"]}'
+    )
 
     messages = state['messages']
     messages.append(HumanMessage(content=prompt))
 
     result = giga.invoke(messages)
+
     messages.append(result)
     state['messages'] = messages
 
-    write_logs('step_3.log', question_human=prompt, returns=result.content)
+    write_logs('step_2.log', question_human=prompt, returns=result.content)
 
-    results = result.content.split('; ')
-    avg_group = results[0].strip()
-    bad_students: list[str] = []
-    if float(avg_group.split(':')[1].strip()) >= state['min_avg_grade']:
-        bad_students = ['нет']
-
-    else:
-        id_bad_students = list(map(int, results[2].split(':')[1].strip().split(', ')))
+    try:
+        results = result.content.split('\n')[-1].split(': ')
+        bad_students: list[str] = []
+        id_bad_students = list(map(int, results[1].strip().split(', ')))
         result_bad_students_db = get_bad_students(id_bad_students)
 
         for row in result_bad_students_db:
             bad_students.append(f"{row[0]} {row[1]}")
 
+        state['result'] += f" студенты, которым необходимо получить оценки: {', '.join(bad_students)}"
+
+    except (IndexError, ValueError, AttributeError) as e:
+        state['warning'] = True
+        state['count_warning'] += 1
+
+        write_logs('step_2.log', question_human="Ошибка при работе с ответом от ИИ", returns=str(e))
+
+    return state
 
 
+def recount_avg(state: State) -> State:
+    messages = state['messages']
+    result = messages[-1].content.split(':')[1].strip().split(', ')
+    grade: list[tuple] = []
+    result = set(map(int, result))
 
-    state['result'] = (f"{avg_group}; необходимый средний балл: {state['min_avg_grade']}; "
-                       f"студенты, которым необходимо получить оценки: {', '.join(bad_students)}")
+    for row in state['grade']:
+        if row[0] in result:
+            grade.append((row[0], 5, row[2]))
+        else:
+            grade.append(row)
 
+    avg = 0
+    len_avg = 0
+    for row in grade:
+        if row[1] is not None:
+            avg += row[1]
+            len_avg += 1
+
+    state['current_avg'] = avg / len_avg
+    state['warning'] = True
+
+    print(grade)
     return state

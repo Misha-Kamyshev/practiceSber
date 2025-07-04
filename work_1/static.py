@@ -49,20 +49,20 @@ dp = Dispatcher()
 giga = GigaChat(
     credentials=AUTHORIZATION_KEY,
     verify_ssl_certs=False,
-    model="GigaChat"
+    model="GigaChat-Pro"
 )
 
 
 class State(MessagesState, total=True):
     user_input: str  # начальное сообщение от пользователя
-    check_sql: str  # промежуточный SQL-запрос
 
-    error_sql: Optional[str]  # ошибка, которая возникает при ошибочном выполнении sql
-    error_empty_sql: bool  # ошибка, если вывод sql пуст
-    count_error_sql: int  # счетчик ошибок
+    error: Optional[str]  # фатальная ошибка
+    warning: bool  # не критичная ошибка
+    count_warning: int  # счетчик ошибок
 
-    data: list[tuple[int, int, float]]  # массив для отправки в нейросеть (student_id, grade, coefficient_students)
     min_avg_grade: float  # средний балл необходимый для группы по выбранному предмету
-    coefficient_subject: float  # коэффициент сложности предмета
+    current_avg_group: float  # текущий средний балл группы по предмету
+    grade: list[tuple]  # текущие оценки студентов
+    current_avg: float  # текущая средняя оценка
 
     result: str  # конечный ответ от ИИ для вывода пользователю

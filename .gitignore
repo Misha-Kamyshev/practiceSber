@@ -3,5 +3,6 @@
 .env
 
 практика.txt
+*.md
 *.log
 */__pycache__/
