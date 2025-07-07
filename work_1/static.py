@@ -49,7 +49,7 @@ dp = Dispatcher()
 giga = GigaChat(
     credentials=AUTHORIZATION_KEY,
     verify_ssl_certs=False,
-    model="GigaChat-Pro"
+    model="GigaChat"
 )
 
 
@@ -61,8 +61,10 @@ class State(MessagesState, total=True):
     count_warning: int  # счетчик ошибок
 
     min_avg_grade: float  # средний балл необходимый для группы по выбранному предмету
-    current_avg_group: float  # текущий средний балл группы по предмету
+    current_avg_group: float  # текущий средний балл группы
+    avg_group: float  # средний балл группы для вывода пользователю
     grade: list[tuple]  # текущие оценки студентов
-    current_avg: float  # текущая средняя оценка
+    select_next: bool  # флаг для выбора последующих студентов
+    selected_students: list[int]  # список выбранных студентов
 
     result: str  # конечный ответ от ИИ для вывода пользователю

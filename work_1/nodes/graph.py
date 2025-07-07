@@ -23,7 +23,7 @@ def route_get_grades(state: State) -> str:
 
 
 def route_recount_avg(state: State) -> str:
-    if state['current_avg'] >= state['min_avg_grade']:
+    if state['min_avg_grade'] <= state['current_avg_group']:
         return END
 
     return 'assessment_analysis'

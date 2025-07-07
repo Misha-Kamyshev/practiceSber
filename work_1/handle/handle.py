@@ -19,14 +19,16 @@ async def handle_message(message: Message):
     response = app.invoke({
         'user_input': message.text,
 
-        'error': '',
+        'error': None,
         'warning': False,
         'count_warning': 0,
 
         'min_avg_grade': 0,
         'current_avg_group': 0,
         'grade': [],
-        'current_avg': 0,
+        'select_next': False,
+        'selected_students': [],
+
 
         'result': ''
     }, config=config)
