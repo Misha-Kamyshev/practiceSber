@@ -1,12 +1,16 @@
 import asyncio
 
 from work_1.handle.handle import router
+from work_1.nodes.agent import agent_orders
 from work_1.static import dp, bot
 
 
 async def main():
     dp.include_router(router)
-    await asyncio.gather(dp.start_polling(bot))
+    await asyncio.gather(
+        dp.start_polling(bot),
+        agent_orders(bot)
+    )
 
 
 if __name__ == '__main__':
