@@ -35,7 +35,7 @@ def assessment_analysis(state: State) -> State:
     messages.append(result)
     state['messages'] = messages
 
-    write_logs('step_2.log', question_human=prompt, returns=result.content)
+    write_logs('step_1.log', question_human=prompt, returns=result.content)
 
     try:
         results = result.content.split(': ')
@@ -46,7 +46,7 @@ def assessment_analysis(state: State) -> State:
         state['warning'] = True
         state['count_warning'] += 1
 
-        write_logs('step_2.log', question_human="Ошибка при работе с ответом от ИИ", returns=str(e))
+        write_logs('step_1_error.log', question_human="Ошибка при работе с ответом от ИИ", returns=str(e))
 
     return state
 
