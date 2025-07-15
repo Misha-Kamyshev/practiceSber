@@ -13,5 +13,3 @@ async def handle_start(message: Message):
 @router.message()
 async def handle_message(message: Message):
     await message.answer(text=f'Я не отвечаю на сообщения ID {message.chat.id}')
-
-    # await message.answer(text=result)
