@@ -2,7 +2,7 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
-from work_1.nodes.graph import app
+from work_1.nodes.agent import agent
 
 router = Router()
 
@@ -14,24 +14,7 @@ async def handle_start(message: Message):
 
 @router.message()
 async def handle_message(message: Message):
-    config = {"configurable": {"thread_id": 'asd1'}}
+    response = agent.invoke(
+        "Подходит ли средний балл у группы ИТ-101 по предмету алгоритмы к минимальному по этому предмету")
 
-    response = app.invoke({
-        'user_input': message.text,
-
-        'error': None,
-        'warning': False,
-        'count_warning': 0,
-
-        'min_avg_grade': 0,
-        'current_avg_group': 0,
-        'grade': [],
-        'select_next': False,
-        'selected_students': [],
-
-
-        'result': ''
-    }, config=config)
-
-    result = response.get('result')
-    await message.answer(text=result)
+    await message.answer(text=response)

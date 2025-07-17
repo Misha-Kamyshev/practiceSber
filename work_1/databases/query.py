@@ -10,7 +10,7 @@ def get_grades_db(group: str, subject: str) -> list | None:
                         LEFT JOIN grades g
                                   ON s.student_id = g.student_id
                                       AND g.subject_id =
-                                          (SELECT subject_id FROM subjects WHERE upper(subject_name) = %s LIMIT 1)
+                                          (SELECT subject_id FROM subjects WHERE upper(subject_name) = upper(%s) LIMIT 1)
                         LEFT JOIN subjects subj
                                   ON g.subject_id = subj.subject_id
                WHERE upper(s.group_name) = %s
@@ -34,7 +34,7 @@ def get_avg_grade_on_subject(subject: str) -> tuple | None:
     query = '''
             SELECT subj.min_avg_grade
             FROM subjects subj
-            WHERE upper(subj.subject_name) = %s;
+            WHERE upper(subj.subject_name) = upper(%s);
             '''
     try:
         with connection.cursor() as cursor:
@@ -77,8 +77,8 @@ def get_avg_group(group: str, subject: str) -> list | None:
                  students s ON g.student_id = s.student_id
                      JOIN
                  subjects subj ON g.subject_id = subj.subject_id
-            WHERE upper(s.group_name) = %s
-              AND upper(subj.subject_name) = %s;
+            WHERE upper(s.group_name) = upper(%s)
+              AND upper(subj.subject_name) = upper(%s);
             '''
 
     try:
